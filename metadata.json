@@ -1,0 +1,8 @@
+{
+  "name": "RentFlow Pro - Modern Rental Management System",
+  "description": "A comprehensive, high-performance rental management platform featuring a professional landing page, real-time dashboards, automated order flows, flexible pricing, and a sleek customer-facing shop. Built for speed, reliability, and visual excellence.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": []
+}
