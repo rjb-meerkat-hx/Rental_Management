@@ -8,7 +8,7 @@ const fs = require('fs');
 const app = express();
 const PORT = process.env.PORT || 3001;
 const DEFAULT_DB_PATH = path.join(__dirname, '..', 'rentflow.db');
-const DB_PATH = process.env.SQLITE_DB_PATH || DEFAULT_DB_PATH;
+let activeDbPath = process.env.SQLITE_DB_PATH || DEFAULT_DB_PATH;
 const allowedOrigins = (process.env.CORS_ORIGIN || '')
   .split(',')
   .map((origin) => origin.trim())
@@ -28,10 +28,24 @@ app.use(express.json());
 
 // Database initialization
 async function initializeDatabase() {
-  fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
+  const requestedDbPath = process.env.SQLITE_DB_PATH || DEFAULT_DB_PATH;
+  const fallbackDbPath = process.env.RENDER ? '/tmp/rentflow.db' : DEFAULT_DB_PATH;
+
+  try {
+    fs.mkdirSync(path.dirname(requestedDbPath), { recursive: true });
+    fs.accessSync(path.dirname(requestedDbPath), fs.constants.W_OK);
+    activeDbPath = requestedDbPath;
+  } catch (error) {
+    console.warn(
+      `Database directory is not writable at ${path.dirname(requestedDbPath)}. ` +
+      `Using ${fallbackDbPath} instead. Add a Render disk at the configured mount path for persistent data.`
+    );
+    fs.mkdirSync(path.dirname(fallbackDbPath), { recursive: true });
+    activeDbPath = fallbackDbPath;
+  }
 
   const db = await open({
-    filename: DB_PATH,
+    filename: activeDbPath,
     driver: sqlite3.Database
   });
 
@@ -392,7 +406,7 @@ app.use((error, req, res, next) => {
 async function startServer() {
   try {
     const db = await initializeDatabase();
-    console.log(`Database initialized successfully at ${DB_PATH}`);
+    console.log(`Database initialized successfully at ${activeDbPath}`);
     
     await seedDatabase(db);
 
