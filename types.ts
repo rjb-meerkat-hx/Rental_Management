@@ -30,12 +30,12 @@ export interface Product {
   name: string;
   description: string;
   category: string;
-  image: string;
-  pricePerHour: number;
-  pricePerDay: number;
-  pricePerWeek: number;
-  stock: number;
-  available: number;
+  image?: string;
+  pricePerHour?: number;
+  pricePerDay?: number;
+  pricePerWeek?: number;
+  stock?: number;
+  available?: number;
 }
 
 export interface OrderItem {

@@ -1,8 +1,9 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { ArrowLeft, Printer, CheckCircle, XCircle, Send, Package, Truck, Receipt } from 'lucide-react';
 import { RentalOrder, RentalStatus } from '../types';
 import { STATUS_COLORS } from '../constants.tsx';
+import { formatINR } from '../utils';
 
 interface OrderDetailProps {
   order?: RentalOrder;
@@ -10,6 +11,8 @@ interface OrderDetailProps {
 }
 
 export const OrderDetail: React.FC<OrderDetailProps> = ({ order, onBack }) => {
+  const [statusMessage, setStatusMessage] = useState('');
+
   if (!order) return null;
 
   const steps = [
@@ -17,6 +20,18 @@ export const OrderDetail: React.FC<OrderDetailProps> = ({ order, onBack }) => {
     { label: 'Sent', status: 'done' },
     { label: 'Rental Order', status: order.status !== RentalStatus.QUOTATION ? 'active' : 'pending' },
   ];
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleDelivery = () => {
+    setStatusMessage('Delivery requested. Your logistics team will follow up with the customer.');
+  };
+
+  const handleCreateInvoice = () => {
+    setStatusMessage('Invoice generated successfully.');
+  };
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-20">
@@ -40,7 +55,7 @@ export const OrderDetail: React.FC<OrderDetailProps> = ({ order, onBack }) => {
         </div>
 
         <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 px-4 py-2 border border-slate-200 bg-white rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-50">
+          <button onClick={handlePrint} className="flex items-center gap-2 px-4 py-2 border border-slate-200 bg-white rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-50">
             <Printer size={16} /> Print
           </button>
           {order.status === RentalStatus.QUOTATION ? (
@@ -49,16 +64,21 @@ export const OrderDetail: React.FC<OrderDetailProps> = ({ order, onBack }) => {
             </button>
           ) : (
              <div className="flex gap-2">
-                <button className="flex items-center gap-2 px-4 py-2 bg-white border border-indigo-200 text-indigo-700 rounded-lg text-sm font-semibold hover:bg-indigo-50">
+                <button onClick={handleDelivery} className="flex items-center gap-2 px-4 py-2 bg-white border border-indigo-200 text-indigo-700 rounded-lg text-sm font-semibold hover:bg-indigo-50">
                   <Truck size={16} /> Delivery
                 </button>
-                <button className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700">
+                <button onClick={handleCreateInvoice} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700">
                   <Receipt size={16} /> Create Invoice
                 </button>
              </div>
           )}
         </div>
       </div>
+      {statusMessage && (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-6 py-4 text-sm text-emerald-800">
+          {statusMessage}
+        </div>
+      )}
 
       {/* Progress Tracker (Matching wireframe breadcrumbs) */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 flex items-center justify-center gap-8 shadow-sm">
@@ -130,8 +150,8 @@ export const OrderDetail: React.FC<OrderDetailProps> = ({ order, onBack }) => {
                     <tr key={idx}>
                       <td className="px-4 py-4 font-semibold text-slate-700">{item.productName}</td>
                       <td className="px-4 py-4 text-center">{item.quantity}</td>
-                      <td className="px-4 py-4 text-right text-slate-500">${item.unitPrice.toFixed(2)}</td>
-                      <td className="px-4 py-4 text-right font-bold text-slate-800">${item.subtotal.toFixed(2)}</td>
+                      <td className="px-4 py-4 text-right text-slate-500">{formatINR(item.unitPrice)}</td>
+                      <td className="px-4 py-4 text-right font-bold text-slate-800">{formatINR(item.subtotal)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -147,15 +167,15 @@ export const OrderDetail: React.FC<OrderDetailProps> = ({ order, onBack }) => {
             <div className="space-y-3">
               <div className="flex justify-between text-sm">
                 <span className="text-slate-500">Untaxed Amount</span>
-                <span className="font-semibold text-slate-700">${order.untaxedTotal.toFixed(2)}</span>
+                <span className="font-semibold text-slate-700">{formatINR(order.untaxedTotal)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-slate-500">Taxes (10%)</span>
-                <span className="font-semibold text-slate-700">${order.taxTotal.toFixed(2)}</span>
+                <span className="font-semibold text-slate-700">{formatINR(order.taxTotal)}</span>
               </div>
               <div className="pt-3 border-t border-slate-100 flex justify-between">
                 <span className="font-bold text-slate-800">Total</span>
-                <span className="text-xl font-bold text-indigo-600">${order.total.toFixed(2)}</span>
+                <span className="text-xl font-bold text-indigo-600">{formatINR(order.total)}</span>
               </div>
             </div>
           </div>

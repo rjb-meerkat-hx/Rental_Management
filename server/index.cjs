@@ -88,7 +88,72 @@ async function initializeDatabase() {
     );
   `);
 
+  // Products table
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS products (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      category TEXT,
+      image TEXT,
+      price_per_day REAL,
+      price_per_hour REAL,
+      stock INTEGER DEFAULT 0,
+      available INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
   return db;
+}
+
+// Seed database with India-specific dummy data if empty
+async function seedDatabase(db) {
+  const propCount = await db.get('SELECT COUNT(1) as cnt FROM properties');
+  const tenantCount = await db.get('SELECT COUNT(1) as cnt FROM tenants');
+
+  if (propCount.cnt === 0) {
+    await db.run(`INSERT INTO properties (name, address, type, bedrooms, bathrooms, rent_amount, status) VALUES
+      ('2BHK Apartment - Andheri East', 'Andheri East, Mumbai, Maharashtra, India', 'Apartment', 2, 2, 35000, 'available'),
+      ('Commercial Office Space - BKC', 'Bandra Kurla Complex, Mumbai, Maharashtra, India', 'Commercial', 0, 2, 150000, 'available'),
+      ('Studio - Koramangala', 'Koramangala, Bengaluru, Karnataka, India', 'Studio', 0,1, 18000, 'available')
+    `);
+    console.log('Seeded properties');
+  }
+
+  if (tenantCount.cnt === 0) {
+    await db.run(`INSERT INTO tenants (name, email, phone, id_number) VALUES
+      ('Rohit Sharma', 'rohit.sharma@example.in', '+91-9876543210', 'A1234567'),
+      ('Priya Patel', 'priya.patel@example.in', '+91-9123456780', 'B9876543')
+    `);
+    console.log('Seeded tenants');
+  }
+
+  // Seed products table from constants if empty
+  const prodCount = await db.get('SELECT COUNT(1) as cnt FROM products');
+  if (prodCount.cnt === 0) {
+    await db.run(`INSERT INTO products (id, name, description, category, image, price_per_day, price_per_hour, stock, available) VALUES
+      ('p1', 'Industrial Generator X500', 'High-power diesel generator for large construction sites.', 'Machinery', '', 20000, 3600, 5, 3),
+      ('p2', 'Executive Office Set', 'Premium desk and chair set.', 'Furniture', '', 6400, 1200, 12, 8),
+      ('p3', 'Event Sound System Pro', 'Complete PA system.', 'Electronics', '', 28000, 4800, 4, 2)
+    `);
+    console.log('Seeded products');
+  }
+
+  // Create a sample rental if none exists
+  const rentalCount = await db.get('SELECT COUNT(1) as cnt FROM rentals');
+  if (rentalCount.cnt === 0) {
+    const property = await db.get('SELECT id FROM properties LIMIT 1');
+    const tenant = await db.get('SELECT id FROM tenants LIMIT 1');
+    if (property && tenant) {
+      await db.run(`INSERT INTO rentals (property_id, tenant_id, start_date, end_date, monthly_rent, security_deposit, status) VALUES
+        (?, ?, date('now'), date('now', '+30 days'), ?, ?, 'active')`,
+        [property.id, tenant.id, 35000, 35000]
+      );
+      console.log('Seeded rentals');
+    }
+  }
 }
 
 // Routes
@@ -104,6 +169,57 @@ app.get('/api/properties', async (req, res) => {
     res.json(properties);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch properties' });
+  }
+});
+
+// Products routes
+app.get('/api/products', async (req, res) => {
+  try {
+    const db = req.app.get('db');
+    const products = await db.all('SELECT * FROM products ORDER BY created_at DESC');
+    res.json(products);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch products' });
+  }
+});
+
+app.post('/api/products', async (req, res) => {
+  try {
+    const db = req.app.get('db');
+    const { id, name, description, category, image, price_per_day, price_per_hour, stock, available } = req.body;
+    const pid = id || `p${Date.now()}`;
+    await db.run(`INSERT INTO products (id, name, description, category, image, price_per_day, price_per_hour, stock, available) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [pid, name, description, category, image, price_per_day, price_per_hour, stock || 0, available || 0]
+    );
+    const product = await db.get('SELECT * FROM products WHERE id = ?', [pid]);
+    res.status(201).json(product);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to create product' });
+  }
+});
+
+app.put('/api/products/:id', async (req, res) => {
+  try {
+    const db = req.app.get('db');
+    const { name, description, category, image, price_per_day, price_per_hour, stock, available } = req.body;
+    await db.run(`UPDATE products SET name = ?, description = ?, category = ?, image = ?, price_per_day = ?, price_per_hour = ?, stock = ?, available = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+      [name, description, category, image, price_per_day, price_per_hour, stock, available, req.params.id]
+    );
+    const product = await db.get('SELECT * FROM products WHERE id = ?', [req.params.id]);
+    res.json(product);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update product' });
+  }
+});
+
+app.delete('/api/products/:id', async (req, res) => {
+  try {
+    const db = req.app.get('db');
+    const result = await db.run('DELETE FROM products WHERE id = ?', [req.params.id]);
+    if (result.changes === 0) return res.status(404).json({ error: 'Product not found' });
+    res.json({ message: 'Product deleted' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete product' });
   }
 });
 
@@ -133,6 +249,17 @@ app.get('/api/tenants', async (req, res) => {
     res.json(tenants);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch tenants' });
+  }
+});
+
+app.get('/api/tenants/:id', async (req, res) => {
+  try {
+    const db = req.app.get('db');
+    const tenant = await db.get('SELECT * FROM tenants WHERE id = ?', [req.params.id]);
+    if (!tenant) return res.status(404).json({ error: 'Tenant not found' });
+    res.json(tenant);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch tenant' });
   }
 });
 
@@ -226,6 +353,8 @@ async function startServer() {
     const db = await initializeDatabase();
     console.log('Database initialized successfully');
     
+    await seedDatabase(db);
+
     app.set('db', db);
     
     app.listen(PORT, () => {

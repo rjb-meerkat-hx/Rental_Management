@@ -1,15 +1,22 @@
 
 import React, { useState } from 'react';
 import { Search, Filter, Plus, MoreHorizontal, ChevronLeft, ChevronRight, FileDown } from 'lucide-react';
+import { formatINR } from '../utils';
 import { RentalOrder, RentalStatus, InvoiceStatus } from '../types';
 import { STATUS_COLORS, INVOICE_STATUS_COLORS } from '../constants.tsx';
 
 interface OrdersListProps {
   orders: RentalOrder[];
   onOrderSelect: (id: string) => void;
+  onCreateOrder?: () => void;
+  onExportOrders?: () => void;
 }
 
-export const OrdersList: React.FC<OrdersListProps> = ({ orders, onOrderSelect }) => {
+export const OrdersList: React.FC<OrdersListProps> = ({ orders, onOrderSelect, onCreateOrder, onExportOrders }) => {
+  // Optional handlers passed from parent
+  // onCreateOrder: () => void
+  // onExportOrders: () => void
+  // We'll read them from props via (orders as any).onCreateOrder when used from App
   const [activeFilter, setActiveFilter] = useState('ALL');
 
   const filteredOrders = orders.filter(o => {
@@ -80,10 +87,10 @@ export const OrdersList: React.FC<OrdersListProps> = ({ orders, onOrderSelect })
              </div>
           </div>
           <div className="flex gap-2">
-            <button className="bg-white border border-slate-200 p-2 rounded-lg text-slate-600 hover:bg-slate-50">
+            <button onClick={() => onExportOrders && onExportOrders()} className="bg-white border border-slate-200 p-2 rounded-lg text-slate-600 hover:bg-slate-50">
               <FileDown size={20} />
             </button>
-            <button className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700 flex items-center gap-2 shadow-sm shadow-indigo-200 transition-all">
+            <button onClick={() => onCreateOrder && onCreateOrder()} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700 flex items-center gap-2 shadow-sm shadow-indigo-200 transition-all">
               <Plus size={18} />
               Create Order
             </button>
@@ -130,7 +137,7 @@ export const OrdersList: React.FC<OrdersListProps> = ({ orders, onOrderSelect })
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <span className="font-bold text-slate-800">${order.total.toFixed(2)}</span>
+                      <span className="font-bold text-slate-800">{formatINR(order.total)}</span>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <button className="p-2 text-slate-400 hover:bg-slate-200 rounded-lg transition-colors">

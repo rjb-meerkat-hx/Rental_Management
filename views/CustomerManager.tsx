@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Users, Plus, Search, Mail, Phone, Calendar } from 'lucide-react';
 
 interface Customer {
@@ -11,33 +11,64 @@ interface Customer {
   status: 'active' | 'inactive';
 }
 
-export const CustomerManager: React.FC = () => {
-  const [customers] = useState<Customer[]>([
-    {
-      id: 'c1',
-      name: 'Adam Johnson',
-      email: 'adam@example.com',
-      phone: '+1 234-567-8900',
-      joinDate: '2024-01-15',
-      totalRentals: 5,
-      status: 'active'
-    },
-    {
-      id: 'c2',
-      name: 'Sufiyan Khan',
-      email: 'sufiyan@enterprise.com',
-      phone: '+1 234-567-8901',
-      joinDate: '2024-02-20',
-      totalRentals: 3,
-      status: 'active'
+interface Props {
+  customers: Customer[];
+  onAddCustomer?: (c: Partial<Customer>) => void;
+  onViewCustomer?: (id: string) => void;
+}
+
+export const CustomerManager: React.FC<Props> = ({ customers: initialCustomers, onAddCustomer, onViewCustomer }) => {
+  const [customers, setCustomers] = React.useState<Customer[]>(initialCustomers || []);
+
+  const normalizeTenant = (tenant: any): Customer => ({
+    id: tenant.id,
+    name: tenant.name,
+    email: tenant.email,
+    phone: tenant.phone,
+    joinDate: tenant.created_at ? tenant.created_at.slice(0, 10) : 'N/A',
+    totalRentals: tenant.totalRentals || 0,
+    status: tenant.status || 'active'
+  });
+
+  React.useEffect(() => {
+    if (!initialCustomers) {
+      fetch('/api/tenants')
+        .then(r => r.json())
+        .then((data) => setCustomers(data.map(normalizeTenant)))
+        .catch(err => console.error(err));
     }
-  ]);
+  }, [initialCustomers]);
+
+  const handleAdd = async () => {
+    const name = window.prompt('Customer name');
+    if (!name) return;
+    const email = window.prompt('Email');
+    const phone = window.prompt('Phone');
+    const payload = { name, email, phone };
+    if (onAddCustomer) { onAddCustomer(payload as any); return; }
+    const res = await fetch('/api/tenants', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const created = await res.json();
+    setCustomers(prev => [normalizeTenant(created), ...prev]);
+  };
+
+  const handleView = async (id: string) => {
+    if (onViewCustomer) { onViewCustomer(id); return; }
+    try {
+      const res = await fetch(`/api/tenants/${id}`);
+      if (!res.ok) throw new Error('Unable to fetch customer');
+      const data = await res.json();
+      alert(`Name: ${data.name}\nEmail: ${data.email}\nPhone: ${data.phone}`);
+    } catch (error) {
+      console.error(error);
+      alert('Failed to load customer details.');
+    }
+  };
 
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Customer Management</h1>
-        <button className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700">
+        <button onClick={handleAdd} className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700">
           <Plus size={20} />
           Add Customer
         </button>
@@ -68,7 +99,7 @@ export const CustomerManager: React.FC = () => {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {customers.map((customer) => (
-                <tr key={customer.id} className="hover:bg-gray-50">
+                <tr key={customer.id} onClick={() => handleView(customer.id)} className="hover:bg-gray-50 cursor-pointer">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="h-10 w-10 flex-shrink-0">
@@ -77,7 +108,7 @@ export const CustomerManager: React.FC = () => {
                         </div>
                       </div>
                       <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{customer.name}</div>
+                          <div className="text-sm font-medium text-gray-900">{customer.name}</div>
                       </div>
                     </div>
                   </td>

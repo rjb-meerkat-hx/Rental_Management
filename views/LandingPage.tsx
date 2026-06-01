@@ -7,6 +7,14 @@ interface LandingPageProps {
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onStartAuth }) => {
+  const featuresRef = React.useRef<HTMLElement | null>(null);
+  const pricingRef = React.useRef<HTMLElement | null>(null);
+  const [showDemo, setShowDemo] = React.useState(false);
+
+  const scrollTo = (ref: React.RefObject<HTMLElement | null>) => {
+    if (ref.current) ref.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-indigo-100 selection:text-indigo-700">
       {/* Navigation */}
@@ -20,9 +28,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartAuth }) => {
           </div>
           
           <div className="hidden md:flex items-center gap-10">
-            <a href="#features" className="text-sm font-semibold text-slate-500 hover:text-indigo-600 transition-colors">Features</a>
-            <a href="#solutions" className="text-sm font-semibold text-slate-500 hover:text-indigo-600 transition-colors">Solutions</a>
-            <a href="#pricing" className="text-sm font-semibold text-slate-500 hover:text-indigo-600 transition-colors">Pricing</a>
+            <button onClick={() => scrollTo(featuresRef)} className="text-sm font-semibold text-slate-500 hover:text-indigo-600 transition-colors">Features</button>
+            <button onClick={() => scrollTo(featuresRef)} className="text-sm font-semibold text-slate-500 hover:text-indigo-600 transition-colors">Solutions</button>
+            <button onClick={() => scrollTo(pricingRef)} className="text-sm font-semibold text-slate-500 hover:text-indigo-600 transition-colors">Pricing</button>
           </div>
 
           <div className="flex items-center gap-4">
@@ -68,7 +76,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartAuth }) => {
               >
                 Start Free Trial <ArrowRight size={20} />
               </button>
-              <button className="px-8 py-4 bg-white border border-slate-200 text-slate-900 rounded-2xl font-bold text-lg hover:bg-slate-50 transition-all flex items-center justify-center gap-3">
+              <button onClick={() => setShowDemo(true)} className="px-8 py-4 bg-white border border-slate-200 text-slate-900 rounded-2xl font-bold text-lg hover:bg-slate-50 transition-all flex items-center justify-center gap-3">
                 Watch Demo
               </button>
             </div>
@@ -123,7 +131,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartAuth }) => {
       </section>
 
       {/* Features Grid */}
-      <section id="features" className="py-32 bg-slate-50">
+      <section id="features" ref={featuresRef as any} className="py-32 bg-slate-50">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-20">
             <h2 className="text-xs font-black text-indigo-600 uppercase tracking-[0.2em] mb-4">Core Ecosystem</h2>
@@ -152,7 +160,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartAuth }) => {
       </section>
 
       {/* CTA Section */}
-      <section className="py-32">
+      <section id="pricing" ref={pricingRef as any} className="py-32">
         <div className="max-w-5xl mx-auto px-6">
           <div className="bg-slate-900 rounded-[3rem] p-12 md:p-20 relative overflow-hidden text-center">
             <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-indigo-600 rounded-full blur-[120px] opacity-20 -translate-y-1/2 translate-x-1/2"></div>
@@ -186,6 +194,39 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartAuth }) => {
           </div>
         </div>
       </section>
+
+      {/* Demo Modal */}
+      {showDemo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-md px-4">
+          <div className="relative w-full max-w-5xl rounded-[2rem] overflow-hidden shadow-2xl shadow-slate-950/30 border border-white/10 bg-slate-900">
+            <button
+              onClick={() => setShowDemo(false)}
+              className="absolute top-4 right-4 z-20 rounded-full bg-white/90 text-slate-900 p-3 shadow-lg shadow-slate-950/10 hover:bg-white transition-colors"
+            >
+              Close
+            </button>
+            <div className="relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 via-violet-700 to-slate-900 opacity-80" />
+              <div className="relative p-10 text-white">
+                <div className="max-w-2xl">
+                  <p className="uppercase text-xs font-semibold tracking-[0.3em] text-indigo-200 mb-4">Featured Demo</p>
+                  <h3 className="text-4xl font-black mb-4">Watch the RentFlow experience in action.</h3>
+                  <p className="text-slate-200/90 leading-relaxed mb-8">See how India-focused rentals, inventory, and customer workflows come together in a polished, modern dashboard.</p>
+                </div>
+              </div>
+              <div className="aspect-video relative">
+                <iframe
+                  className="absolute inset-0 w-full h-full rounded-b-[2rem]"
+                  src="https://www.youtube.com/embed/qQujA8u1zGI"
+                  title="Sushant KC - Parkha Na ft. Jhuma Limbu (Official Music Video)"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Footer */}
       <footer className="py-20 border-t border-slate-100">

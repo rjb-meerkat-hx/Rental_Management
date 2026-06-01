@@ -5,6 +5,7 @@ import {
   LayoutGrid, List, ChevronRight, Star, Clock, Sparkles
 } from 'lucide-react';
 import { MOCK_PRODUCTS } from '../constants.tsx';
+import { formatINR, normalizeProduct } from '../utils';
 import { Chatbot, ChatbotButton } from '../components/Chatbot';
 import { Cart } from '../components/Cart';
 
@@ -19,26 +20,38 @@ export const CustomerShop: React.FC<CustomerShopProps> = ({ onExit }) => {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [cartItems, setCartItems] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('All Collections');
+  const [products, setProducts] = useState<any[]>(MOCK_PRODUCTS);
+
+  React.useEffect(() => {
+    fetch('/api/products')
+      .then(r => r.json())
+      .then(data => {
+        // Normalize all products from server format
+        const normalized = data.map(normalizeProduct);
+        setProducts(normalized);
+      })
+      .catch(() => setProducts(MOCK_PRODUCTS));
+  }, []);
 
   const addToCart = (product: any) => {
-    const existingItem = cartItems.find(item => item.id === product.id);
-    
-    if (existingItem) {
-      setCartItems(cartItems.map(item => 
-        item.id === product.id 
-          ? { ...item, quantity: item.quantity + 1 }
-          : item
-      ));
-    } else {
-      setCartItems([...cartItems, {
-        id: product.id,
-        product,
-        quantity: 1,
-        rentalDays: 1
-      }]);
-    }
-    
-    setCartCount(cartItems.reduce((total, item) => total + item.quantity, 0) + 1);
+    setCartItems(prevItems => {
+      const existingItem = prevItems.find(item => item.id === product.id);
+      let updatedItems;
+
+      if (existingItem) {
+        updatedItems = prevItems.map(item =>
+          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+        );
+      } else {
+        updatedItems = [
+          ...prevItems,
+          { id: product.id, product, quantity: 1, rentalDays: 1 }
+        ];
+      }
+
+      setCartCount(updatedItems.reduce((total, item) => total + item.quantity, 0));
+      return updatedItems;
+    });
   };
 
   const updateCartQuantity = (id: string, quantity: number) => {
@@ -46,26 +59,24 @@ export const CustomerShop: React.FC<CustomerShopProps> = ({ onExit }) => {
       removeFromCart(id);
       return;
     }
-    
-    setCartItems(cartItems.map(item => 
-      item.id === id ? { ...item, quantity } : item
-    ));
-    
-    setCartCount(cartItems.reduce((total, item) => 
-      total + (item.id === id ? quantity : item.quantity), 0
-    ));
+
+    setCartItems(prevItems => {
+      const updatedItems = prevItems.map(item => item.id === id ? { ...item, quantity } : item);
+      setCartCount(updatedItems.reduce((total, item) => total + item.quantity, 0));
+      return updatedItems;
+    });
   };
 
   const updateCartDays = (id: string, days: number) => {
-    setCartItems(cartItems.map(item => 
-      item.id === id ? { ...item, rentalDays: days } : item
-    ));
+    setCartItems(prevItems => prevItems.map(item => item.id === id ? { ...item, rentalDays: days } : item));
   };
 
   const removeFromCart = (id: string) => {
-    const item = cartItems.find(item => item.id === id);
-    setCartItems(cartItems.filter(item => item.id !== id));
-    setCartCount(cartCount - (item?.quantity || 0));
+    setCartItems(prevItems => {
+      const updatedItems = prevItems.filter(item => item.id !== id);
+      setCartCount(updatedItems.reduce((total, item) => total + item.quantity, 0));
+      return updatedItems;
+    });
   };
 
   const handleCheckout = () => {
@@ -75,7 +86,7 @@ export const CustomerShop: React.FC<CustomerShopProps> = ({ onExit }) => {
 
   const getFilteredProducts = () => {
     if (selectedCategory === 'All Collections') {
-      return MOCK_PRODUCTS;
+      return products;
     }
     
     const categoryMap: { [key: string]: string } = {
@@ -88,11 +99,11 @@ export const CustomerShop: React.FC<CustomerShopProps> = ({ onExit }) => {
     };
     
     const mappedCategory = categoryMap[selectedCategory];
-    return MOCK_PRODUCTS.filter(product => product.category === mappedCategory);
+    return products.filter(product => product.category === mappedCategory);
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col animate-fade-in overflow-y-auto">
+    <div className="h-screen bg-slate-50 flex flex-col animate-fade-in overflow-hidden">
       {/* Shop Header */}
       <header className="bg-white/80 backdrop-blur-md border-b border-slate-200 px-8 py-4 sticky top-0 z-30 shadow-sm">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
@@ -152,7 +163,7 @@ export const CustomerShop: React.FC<CustomerShopProps> = ({ onExit }) => {
         </div>
       </div>
 
-      <main className="flex-1 max-w-7xl mx-auto w-full p-8 flex gap-10">
+      <main className="flex-1 overflow-y-auto max-w-7xl mx-auto w-full p-8 flex gap-10">
         {/* Sidebar Filters */}
         <aside className="w-72 shrink-0 space-y-10 hidden lg:block">
            <div className="animate-slide-up" style={{animationDelay: '100ms'}}>
@@ -255,7 +266,7 @@ export const CustomerShop: React.FC<CustomerShopProps> = ({ onExit }) => {
                   <div className={`mt-10 pt-6 border-t border-slate-100 flex items-center justify-between ${viewMode === 'list' ? 'mt-0' : ''}`}>
                     <div>
                       <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Standard Rate</p>
-                      <p className="text-3xl font-black text-slate-800">₹{product.pricePerDay}<span className="text-base font-bold text-slate-300 ml-1">/day</span></p>
+                      <p className="text-3xl font-black text-slate-800">{formatINR(product.pricePerDay)}<span className="text-base font-bold text-slate-300 ml-1">/day</span></p>
                     </div>
                     <button 
                       onClick={() => addToCart(product)}

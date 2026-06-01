@@ -35,45 +35,65 @@ export const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose }) => {
   }, [messages]);
 
   const generateBotResponse = (userMessage: string): string => {
-    const lowerMessage = userMessage.toLowerCase();
-    
-    if (lowerMessage.includes('pricing') || lowerMessage.includes('cost') || lowerMessage.includes('price')) {
+    const lowerMessage = userMessage.toLowerCase().trim();
+
+    // Pricing questions
+    if (/price|cost|rate|affordable|much does|how much|expensive|cheap|discount/.test(lowerMessage)) {
       return 'Our pricing varies by equipment and rental duration. We offer hourly, daily, and weekly rates. For example, generators start at ₹2,000 per day, office furniture at ₹6,000 per day, and sound systems at ₹28,000 per day. Would you like specific pricing for any equipment?';
     }
-    
-    if (lowerMessage.includes('delivery') || lowerMessage.includes('shipping') || lowerMessage.includes('transport')) {
+
+    // Delivery & Transportation
+    if (/deliver|delivery|shipping|transport|pickup|logistics|how it reaches|get to me/.test(lowerMessage)) {
       return 'We offer delivery services across Mumbai and surrounding areas. Delivery costs depend on the equipment size and distance. Standard delivery is typically ₹500-₹2,000. We also provide pickup services when your rental period ends.';
     }
-    
-    if (lowerMessage.includes('rental') || lowerMessage.includes('how to rent')) {
+
+    // How to rent / Process
+    if (/how to|how do|rent|rental process|book|order|steps|procedure/.test(lowerMessage)) {
       return 'Renting from RentFlow is simple! 1) Browse our equipment catalog, 2) Select items and specify rental duration, 3) Complete the booking with your details, 4) We deliver the equipment to your location, 5) Use the equipment and we handle pickup when done.';
     }
-    
-    if (lowerMessage.includes('payment') || lowerMessage.includes('pay')) {
+
+    // Payment methods
+    if (/payment|pay|card|upi|transfer|cash|billing|invoice/.test(lowerMessage)) {
       return 'We accept multiple payment methods including UPI, credit/debit cards, bank transfers, and cash. Payment can be made upfront or we offer corporate billing options for regular customers. A security deposit is required for most rentals.';
     }
-    
-    if (lowerMessage.includes('maintenance') || lowerMessage.includes('service') || lowerMessage.includes('repair')) {
+
+    // Maintenance & Support
+    if (/maintenance|maintain|service|repair|broken|issue|problem|support|help/.test(lowerMessage)) {
       return 'All our equipment is regularly maintained and serviced. In case of any issues during your rental period, we provide 24/7 support and can replace equipment if needed. Maintenance is included in your rental cost.';
     }
-    
-    if (lowerMessage.includes('insurance') || lowerMessage.includes('damage')) {
+
+    // Insurance & Damage
+    if (/insurance|insure|damage|accidental|accident|coverage|covered|protect/.test(lowerMessage)) {
       return 'Basic insurance is included with all rentals covering normal wear and tear. Additional comprehensive coverage is available for an extra 10% of the rental cost. This covers accidental damage, theft, and loss.';
     }
-    
-    if (lowerMessage.includes('bulk') || lowerMessage.includes('corporate') || lowerMessage.includes('business')) {
+
+    // Bulk & Corporate
+    if (/bulk|corporate|business|wholesale|company|organization|commercial/.test(lowerMessage)) {
       return 'We offer special rates for bulk and corporate rentals! Businesses can enjoy discounted pricing, flexible billing cycles, dedicated account managers, and priority support. Contact our business team for custom quotes on large orders.';
     }
-    
-    if (lowerMessage.includes('cancel') || lowerMessage.includes('refund')) {
+
+    // Cancellation & Returns
+    if (/cancel|refund|return|withdraw|undo/.test(lowerMessage)) {
       return 'Cancellations made 48 hours before delivery are fully refundable. Within 48 hours, there\'s a 25% cancellation fee. Once equipment is delivered, the rental fee is non-refundable, but you can return equipment early for a prorated refund.';
     }
-    
-    if (lowerMessage.includes('contact') || lowerMessage.includes('phone') || lowerMessage.includes('email')) {
+
+    // Contact & Support
+    if (/contact|phone|email|call|reach|support|help|faq/.test(lowerMessage)) {
       return 'You can reach us at 📞 +91 98765 43210 or 📧 support@rentflow.com. Our customer service is available Monday-Saturday, 9 AM to 7 PM. For urgent issues, we have 24/7 emergency support at +91 98765 43211.';
     }
-    
-    return 'I\'m here to help! I can answer questions about our equipment, pricing, delivery, payment options, rental process, maintenance, insurance, bulk orders, cancellations, and contact information. What specific information would you like to know?';
+
+    // Equipment/Products queries
+    if (/equipment|product|item|tool|available|in stock|what do you|what equipment/.test(lowerMessage)) {
+      return 'We offer a wide range of equipment for rent including industrial generators, office furniture sets, sound systems, mobile equipment, climate control units, and much more! Browse our catalog to see all available items and their pricing. Is there any specific type of equipment you\'re looking for?';
+    }
+
+    // Greeting responses
+    if (/^(hi|hello|hey|greetings|namaste)$/.test(lowerMessage.trim())) {
+      return 'Hello! Welcome to RentFlow! 👋 I\'m here to help you with any questions about our rental services. What would you like to know?';
+    }
+
+    // Default: ask for clarification
+    return 'Thanks for your message! To help you better, could you provide more details? I can assist with: pricing, delivery, how to rent, payments, maintenance, insurance, bulk orders, cancellations, contact info, or product availability.';
   };
 
   const handleSendMessage = () => {
@@ -162,7 +182,7 @@ export const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose }) => {
             </div>
           </div>
         ))}
-        
+
         {isTyping && (
           <div className="flex gap-3">
             <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">

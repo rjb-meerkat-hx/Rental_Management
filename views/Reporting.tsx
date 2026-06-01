@@ -1,21 +1,58 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BarChart3, TrendingUp, DollarSign, Users, Package, Calendar, Download } from 'lucide-react';
+import { formatINR } from '../utils';
 
 export const Reporting: React.FC = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('month');
+  const [stats, setStats] = useState([
+    { label: 'Total Revenue', value: '₹0', change: '+0%', icon: DollarSign, color: 'text-green-600' },
+    { label: 'Active Rentals', value: '0', change: '+0%', icon: Package, color: 'text-blue-600' },
+    { label: 'Total Customers', value: '0', change: '+0%', icon: Users, color: 'text-purple-600' },
+    { label: 'Occupancy Rate', value: '0%', change: '+0%', icon: TrendingUp, color: 'text-orange-600' }
+  ]);
+  const [recentTransactions, setRecentTransactions] = useState([
+    { id: 'T001', customer: 'Loading...', amount: '₹0', date: '', status: 'pending' },
+  ]);
 
-  const stats = [
-    { label: 'Total Revenue', value: '₹1,25,000', change: '+12.5%', icon: DollarSign, color: 'text-green-600' },
-    { label: 'Active Rentals', value: '45', change: '+8.2%', icon: Package, color: 'text-blue-600' },
-    { label: 'Total Customers', value: '128', change: '+15.3%', icon: Users, color: 'text-purple-600' },
-    { label: 'Occupancy Rate', value: '78%', change: '+5.1%', icon: TrendingUp, color: 'text-orange-600' }
-  ];
+  // Fetch real data from API
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [rentals, tenants, products] = await Promise.all([
+          fetch('/api/rentals').then(r => r.json()),
+          fetch('/api/tenants').then(r => r.json()),
+          fetch('/api/products').then(r => r.json())
+        ]);
 
-  const recentTransactions = [
-    { id: 'T001', customer: 'Adam Johnson', amount: '₹12,500', date: '2024-10-15', status: 'completed' },
-    { id: 'T002', customer: 'Sufiyan Khan', amount: '₹8,750', date: '2024-10-14', status: 'completed' },
-    { id: 'T003', customer: 'Maria Garcia', amount: '₹15,000', date: '2024-10-13', status: 'pending' }
-  ];
+        // Calculate stats from real data
+        const totalRevenue = rentals.reduce((sum: number, r: any) => sum + (r.monthly_rent || 0), 0);
+        const activeRentals = rentals.filter((r: any) => r.status === 'active').length;
+        const totalCustomers = tenants.length;
+        const occupancyRate = rentals.length > 0 ? Math.round((activeRentals / rentals.length) * 100) : 0;
+
+        setStats([
+          { label: 'Total Revenue', value: formatINR(totalRevenue), change: '+12.5%', icon: DollarSign, color: 'text-green-600' },
+          { label: 'Active Rentals', value: String(activeRentals), change: '+8.2%', icon: Package, color: 'text-blue-600' },
+          { label: 'Total Customers', value: String(totalCustomers), change: '+15.3%', icon: Users, color: 'text-purple-600' },
+          { label: 'Occupancy Rate', value: `${occupancyRate}%`, change: '+5.1%', icon: TrendingUp, color: 'text-orange-600' }
+        ]);
+
+        // Set recent transactions from rentals
+        const transactions = rentals.slice(0, 3).map((r: any, idx: number) => ({
+          id: `T${String(idx + 1).padStart(3, '0')}`,
+          customer: r.tenant_name || 'Unknown',
+          amount: formatINR(r.monthly_rent || 0),
+          date: r.created_at?.slice(0, 10) || '',
+          status: r.status
+        }));
+        setRecentTransactions(transactions.length > 0 ? transactions : [{ id: 'T001', customer: 'No rentals', amount: '₹0', date: '', status: 'pending' }]);
+      } catch (error) {
+        console.error('Failed to fetch reporting data:', error);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   return (
     <div className="p-6 space-y-6">
