@@ -1,6 +1,8 @@
 # RentFlow Pro
 
-Rental management app with a Vite/React frontend and an Express/SQLite API.
+Rental management app with a Vite/React frontend and an Express API.
+
+Local development uses SQLite by default. Production can use a free hosted Postgres database through `DATABASE_URL`.
 
 ## Local Development
 
@@ -36,11 +38,11 @@ Set these on the Render web service:
 
 ```bash
 NODE_ENV=production
-SQLITE_DB_PATH=/var/data/rentflow.db
+DATABASE_URL=postgresql://...
 CORS_ORIGIN=https://your-vercel-app.vercel.app
 ```
 
-Use the persistent disk mounted at `/var/data` so SQLite data survives deploys.
+Use a free hosted Postgres database from Neon or Supabase. Do not set `SQLITE_DB_PATH` on Render unless you are using a paid persistent disk.
 
 ### Frontend on Vercel
 
@@ -64,14 +66,13 @@ Do not include a trailing slash.
    Health Check Path: /api/health
    ```
 
-4. Add a persistent disk:
+4. Create a free Postgres database on Neon or Supabase and copy its pooled connection string.
 
    ```bash
-   Mount Path: /var/data
-   Size: 1 GB
+   DATABASE_URL=postgresql://...
    ```
 
-5. Add the backend environment variables listed above.
+5. Add the backend environment variables listed above. Leave `SQLITE_DB_PATH` unset on Render.
 6. Deploy and copy the Render service URL.
 
 The included `render.yaml` can also be used as a Render Blueprint.

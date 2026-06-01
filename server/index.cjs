@@ -1,7 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const sqlite3 = require('sqlite3').verbose();
-const { open } = require('sqlite');
+const { Pool } = require('pg');
 const path = require('path');
 const fs = require('fs');
 
@@ -26,8 +25,133 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Database initialization
-async function initializeDatabase() {
+const convertQuestionParams = (sql) => {
+  let index = 0;
+  return sql.replace(/\?/g, () => `$${++index}`);
+};
+
+const createPostgresDb = async () => {
+  const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.DATABASE_URL?.includes('localhost') ? false : { rejectUnauthorized: false }
+  });
+
+  const query = async (sql, params = []) => {
+    let normalizedSql = convertQuestionParams(sql);
+    if (/^INSERT INTO (properties|tenants|rentals)\b/i.test(normalizedSql) && !/RETURNING\b/i.test(normalizedSql)) {
+      normalizedSql = `${normalizedSql} RETURNING id`;
+    }
+
+    return pool.query(normalizedSql, params);
+  };
+
+  const db = {
+    dialect: 'postgres',
+    async exec(sql) {
+      return pool.query(sql);
+    },
+    async all(sql, params = []) {
+      const result = await query(sql, params);
+      return result.rows;
+    },
+    async get(sql, params = []) {
+      const result = await query(sql, params);
+      return result.rows[0];
+    },
+    async run(sql, params = []) {
+      const result = await query(sql, params);
+      return {
+        lastID: result.rows[0]?.id,
+        changes: result.rowCount
+      };
+    },
+    async close() {
+      await pool.end();
+    }
+  };
+
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS properties (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      address TEXT NOT NULL,
+      type TEXT NOT NULL,
+      bedrooms INTEGER,
+      bathrooms INTEGER,
+      rent_amount REAL NOT NULL,
+      status TEXT DEFAULT 'available',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS tenants (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      email TEXT UNIQUE NOT NULL,
+      phone TEXT,
+      id_number TEXT UNIQUE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS rentals (
+      id SERIAL PRIMARY KEY,
+      property_id INTEGER NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+      tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+      start_date DATE NOT NULL,
+      end_date DATE,
+      monthly_rent REAL NOT NULL,
+      security_deposit REAL,
+      status TEXT DEFAULT 'active',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS payments (
+      id SERIAL PRIMARY KEY,
+      rental_id INTEGER NOT NULL REFERENCES rentals(id) ON DELETE CASCADE,
+      amount REAL NOT NULL,
+      payment_date DATE NOT NULL,
+      due_date DATE NOT NULL,
+      status TEXT DEFAULT 'pending',
+      payment_method TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS maintenance_requests (
+      id SERIAL PRIMARY KEY,
+      property_id INTEGER NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+      rental_id INTEGER REFERENCES rentals(id) ON DELETE SET NULL,
+      title TEXT NOT NULL,
+      description TEXT,
+      priority TEXT DEFAULT 'medium',
+      status TEXT DEFAULT 'open',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS products (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      category TEXT,
+      image TEXT,
+      price_per_day REAL,
+      price_per_hour REAL,
+      stock INTEGER DEFAULT 0,
+      available INTEGER DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  activeDbPath = 'Postgres DATABASE_URL';
+  return db;
+};
+
+const createSqliteDb = async () => {
+  const sqlite3 = require('sqlite3').verbose();
+  const { open } = require('sqlite');
   const requestedDbPath = process.env.SQLITE_DB_PATH || DEFAULT_DB_PATH;
   const fallbackDbPath = process.env.RENDER ? '/tmp/rentflow.db' : DEFAULT_DB_PATH;
 
@@ -48,6 +172,7 @@ async function initializeDatabase() {
     filename: activeDbPath,
     driver: sqlite3.Database
   });
+  db.dialect = 'sqlite';
 
   // Enable foreign keys
   await db.exec('PRAGMA foreign_keys = ON');
@@ -137,6 +262,15 @@ async function initializeDatabase() {
   `);
 
   return db;
+};
+
+// Database initialization
+async function initializeDatabase() {
+  if (process.env.DATABASE_URL) {
+    return createPostgresDb();
+  }
+
+  return createSqliteDb();
 }
 
 // Seed database with India-specific dummy data if empty
@@ -144,7 +278,7 @@ async function seedDatabase(db) {
   const propCount = await db.get('SELECT COUNT(1) as cnt FROM properties');
   const tenantCount = await db.get('SELECT COUNT(1) as cnt FROM tenants');
 
-  if (propCount.cnt === 0) {
+  if (Number(propCount.cnt) === 0) {
     await db.run(`INSERT INTO properties (name, address, type, bedrooms, bathrooms, rent_amount, status) VALUES
       ('2BHK Apartment - Andheri East', 'Andheri East, Mumbai, Maharashtra, India', 'Apartment', 2, 2, 35000, 'available'),
       ('Commercial Office Space - BKC', 'Bandra Kurla Complex, Mumbai, Maharashtra, India', 'Commercial', 0, 2, 150000, 'available'),
@@ -153,7 +287,7 @@ async function seedDatabase(db) {
     console.log('Seeded properties');
   }
 
-  if (tenantCount.cnt === 0) {
+  if (Number(tenantCount.cnt) === 0) {
     await db.run(`INSERT INTO tenants (name, email, phone, id_number) VALUES
       ('Rohit Sharma', 'rohit.sharma@example.in', '+91-9876543210', 'A1234567'),
       ('Priya Patel', 'priya.patel@example.in', '+91-9123456780', 'B9876543')
@@ -163,7 +297,7 @@ async function seedDatabase(db) {
 
   // Seed products table from constants if empty
   const prodCount = await db.get('SELECT COUNT(1) as cnt FROM products');
-  if (prodCount.cnt === 0) {
+  if (Number(prodCount.cnt) === 0) {
     await db.run(`INSERT INTO products (id, name, description, category, image, price_per_day, price_per_hour, stock, available) VALUES
       ('p1', 'Industrial Generator X500', 'High-power diesel generator for large construction sites.', 'Machinery', '', 20000, 3600, 5, 3),
       ('p2', 'Executive Office Set', 'Premium desk and chair set.', 'Furniture', '', 6400, 1200, 12, 8),
@@ -174,14 +308,21 @@ async function seedDatabase(db) {
 
   // Create a sample rental if none exists
   const rentalCount = await db.get('SELECT COUNT(1) as cnt FROM rentals');
-  if (rentalCount.cnt === 0) {
+  if (Number(rentalCount.cnt) === 0) {
     const property = await db.get('SELECT id FROM properties LIMIT 1');
     const tenant = await db.get('SELECT id FROM tenants LIMIT 1');
     if (property && tenant) {
-      await db.run(`INSERT INTO rentals (property_id, tenant_id, start_date, end_date, monthly_rent, security_deposit, status) VALUES
-        (?, ?, date('now'), date('now', '+30 days'), ?, ?, 'active')`,
-        [property.id, tenant.id, 35000, 35000]
-      );
+      if (db.dialect === 'postgres') {
+        await db.run(`INSERT INTO rentals (property_id, tenant_id, start_date, end_date, monthly_rent, security_deposit, status) VALUES
+          (?, ?, CURRENT_DATE, CURRENT_DATE + INTERVAL '30 days', ?, ?, 'active')`,
+          [property.id, tenant.id, 35000, 35000]
+        );
+      } else {
+        await db.run(`INSERT INTO rentals (property_id, tenant_id, start_date, end_date, monthly_rent, security_deposit, status) VALUES
+          (?, ?, date('now'), date('now', '+30 days'), ?, ?, 'active')`,
+          [property.id, tenant.id, 35000, 35000]
+        );
+      }
       console.log('Seeded rentals');
     }
   }

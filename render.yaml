@@ -9,11 +9,7 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: SQLITE_DB_PATH
-        value: /var/data/rentflow.db
+      - key: DATABASE_URL
+        sync: false
       - key: CORS_ORIGIN
         sync: false
-    disks:
-      - name: rentflow-data
-        mountPath: /var/data
-        sizeGB: 1
