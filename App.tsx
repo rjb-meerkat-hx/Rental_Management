@@ -13,7 +13,7 @@ import { CustomerManager } from './views/CustomerManager';
 import { Reporting } from './views/Reporting';
 import { SettingsView } from './views/Settings';
 import { RentalStatus, InvoiceStatus, RentalOrder, OrderItem, User, UserRole } from './types';
-import { normalizeProduct } from './utils';
+import { apiFetch, normalizeProduct } from './utils';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -42,10 +42,10 @@ const App: React.FC = () => {
 
   React.useEffect(() => {
     Promise.all([
-      fetch('/api/rentals').then(r => r.json()),
-      fetch('/api/properties').then(r => r.json()),
-      fetch('/api/tenants').then(r => r.json()),
-      fetch('/api/products').then(r => r.json())
+      apiFetch('/api/rentals').then(r => r.json()),
+      apiFetch('/api/properties').then(r => r.json()),
+      apiFetch('/api/tenants').then(r => r.json()),
+      apiFetch('/api/products').then(r => r.json())
     ])
       .then(([rentalData, propertyData, tenantData, productData]) => {
         const mapped = rentalData.map((r: any) => ({
@@ -143,7 +143,7 @@ const App: React.FC = () => {
         status: orderDraft.status,
       };
 
-      const res = await fetch('/api/rentals', {
+      const res = await apiFetch('/api/rentals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

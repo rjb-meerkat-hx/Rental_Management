@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart3, TrendingUp, DollarSign, Users, Package, Calendar, Download } from 'lucide-react';
-import { formatINR } from '../utils';
+import { apiFetch, formatINR } from '../utils';
 
 export const Reporting: React.FC = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('month');
@@ -19,9 +19,9 @@ export const Reporting: React.FC = () => {
     const fetchData = async () => {
       try {
         const [rentals, tenants, products] = await Promise.all([
-          fetch('/api/rentals').then(r => r.json()),
-          fetch('/api/tenants').then(r => r.json()),
-          fetch('/api/products').then(r => r.json())
+          apiFetch('/api/rentals').then(r => r.json()),
+          apiFetch('/api/tenants').then(r => r.json()),
+          apiFetch('/api/products').then(r => r.json())
         ]);
 
         // Calculate stats from real data

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Users, Plus, Search, Mail, Phone, Calendar } from 'lucide-react';
+import { apiFetch } from '../utils';
 
 interface Customer {
   id: string;
@@ -32,7 +33,7 @@ export const CustomerManager: React.FC<Props> = ({ customers: initialCustomers, 
 
   React.useEffect(() => {
     if (!initialCustomers) {
-      fetch('/api/tenants')
+      apiFetch('/api/tenants')
         .then(r => r.json())
         .then((data) => setCustomers(data.map(normalizeTenant)))
         .catch(err => console.error(err));
@@ -46,7 +47,7 @@ export const CustomerManager: React.FC<Props> = ({ customers: initialCustomers, 
     const phone = window.prompt('Phone');
     const payload = { name, email, phone };
     if (onAddCustomer) { onAddCustomer(payload as any); return; }
-    const res = await fetch('/api/tenants', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const res = await apiFetch('/api/tenants', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     const created = await res.json();
     setCustomers(prev => [normalizeTenant(created), ...prev]);
   };
@@ -54,7 +55,7 @@ export const CustomerManager: React.FC<Props> = ({ customers: initialCustomers, 
   const handleView = async (id: string) => {
     if (onViewCustomer) { onViewCustomer(id); return; }
     try {
-      const res = await fetch(`/api/tenants/${id}`);
+      const res = await apiFetch(`/api/tenants/${id}`);
       if (!res.ok) throw new Error('Unable to fetch customer');
       const data = await res.json();
       alert(`Name: ${data.name}\nEmail: ${data.email}\nPhone: ${data.phone}`);

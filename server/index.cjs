@@ -3,18 +3,35 @@ const cors = require('cors');
 const sqlite3 = require('sqlite3').verbose();
 const { open } = require('sqlite');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const DEFAULT_DB_PATH = path.join(__dirname, '..', 'rentflow.db');
+const DB_PATH = process.env.SQLITE_DB_PATH || DEFAULT_DB_PATH;
+const allowedOrigins = (process.env.CORS_ORIGIN || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error(`Origin ${origin} is not allowed by CORS`));
+  }
+}));
 app.use(express.json());
 
 // Database initialization
 async function initializeDatabase() {
+  fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
+
   const db = await open({
-    filename: path.join(__dirname, '..', 'rentflow.db'),
+    filename: DB_PATH,
     driver: sqlite3.Database
   });
 
@@ -158,7 +175,11 @@ async function seedDatabase(db) {
 
 // Routes
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+  res.json({
+    status: 'OK',
+    environment: process.env.NODE_ENV || 'development',
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Properties routes
@@ -168,6 +189,7 @@ app.get('/api/properties', async (req, res) => {
     const properties = await db.all('SELECT * FROM properties ORDER BY created_at DESC');
     res.json(properties);
   } catch (error) {
+    console.error('Failed to fetch properties:', error);
     res.status(500).json({ error: 'Failed to fetch properties' });
   }
 });
@@ -179,6 +201,7 @@ app.get('/api/products', async (req, res) => {
     const products = await db.all('SELECT * FROM products ORDER BY created_at DESC');
     res.json(products);
   } catch (error) {
+    console.error('Failed to fetch products:', error);
     res.status(500).json({ error: 'Failed to fetch products' });
   }
 });
@@ -194,6 +217,7 @@ app.post('/api/products', async (req, res) => {
     const product = await db.get('SELECT * FROM products WHERE id = ?', [pid]);
     res.status(201).json(product);
   } catch (error) {
+    console.error('Failed to create product:', error);
     res.status(500).json({ error: 'Failed to create product' });
   }
 });
@@ -208,6 +232,7 @@ app.put('/api/products/:id', async (req, res) => {
     const product = await db.get('SELECT * FROM products WHERE id = ?', [req.params.id]);
     res.json(product);
   } catch (error) {
+    console.error('Failed to update product:', error);
     res.status(500).json({ error: 'Failed to update product' });
   }
 });
@@ -219,6 +244,7 @@ app.delete('/api/products/:id', async (req, res) => {
     if (result.changes === 0) return res.status(404).json({ error: 'Product not found' });
     res.json({ message: 'Product deleted' });
   } catch (error) {
+    console.error('Failed to delete product:', error);
     res.status(500).json({ error: 'Failed to delete product' });
   }
 });
@@ -237,6 +263,7 @@ app.post('/api/properties', async (req, res) => {
     const newProperty = await db.get('SELECT * FROM properties WHERE id = ?', [result.lastID]);
     res.status(201).json(newProperty);
   } catch (error) {
+    console.error('Failed to create property:', error);
     res.status(500).json({ error: 'Failed to create property' });
   }
 });
@@ -248,6 +275,7 @@ app.get('/api/tenants', async (req, res) => {
     const tenants = await db.all('SELECT * FROM tenants ORDER BY created_at DESC');
     res.json(tenants);
   } catch (error) {
+    console.error('Failed to fetch tenants:', error);
     res.status(500).json({ error: 'Failed to fetch tenants' });
   }
 });
@@ -259,6 +287,7 @@ app.get('/api/tenants/:id', async (req, res) => {
     if (!tenant) return res.status(404).json({ error: 'Tenant not found' });
     res.json(tenant);
   } catch (error) {
+    console.error('Failed to fetch tenant:', error);
     res.status(500).json({ error: 'Failed to fetch tenant' });
   }
 });
@@ -277,6 +306,7 @@ app.post('/api/tenants', async (req, res) => {
     const newTenant = await db.get('SELECT * FROM tenants WHERE id = ?', [result.lastID]);
     res.status(201).json(newTenant);
   } catch (error) {
+    console.error('Failed to create tenant:', error);
     res.status(500).json({ error: 'Failed to create tenant' });
   }
 });
@@ -299,6 +329,7 @@ app.get('/api/rentals', async (req, res) => {
     `);
     res.json(rentals);
   } catch (error) {
+    console.error('Failed to fetch rentals:', error);
     res.status(500).json({ error: 'Failed to fetch rentals' });
   }
 });
@@ -343,24 +374,45 @@ app.post('/api/rentals', async (req, res) => {
       throw error;
     }
   } catch (error) {
+    console.error('Failed to create rental:', error);
     res.status(500).json({ error: 'Failed to create rental' });
   }
+});
+
+app.use((error, req, res, next) => {
+  if (error.message && error.message.includes('not allowed by CORS')) {
+    return res.status(403).json({ error: 'Origin not allowed' });
+  }
+
+  console.error('Unhandled request error:', error);
+  return res.status(500).json({ error: 'Internal server error' });
 });
 
 // Start server
 async function startServer() {
   try {
     const db = await initializeDatabase();
-    console.log('Database initialized successfully');
+    console.log(`Database initialized successfully at ${DB_PATH}`);
     
     await seedDatabase(db);
 
     app.set('db', db);
     
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
-      console.log(`API available at http://localhost:${PORT}/api`);
+      console.log(`API health check available at /api/health`);
     });
+
+    const shutdown = async () => {
+      console.log('Shutting down server...');
+      server.close(async () => {
+        await db.close();
+        process.exit(0);
+      });
+    };
+
+    process.on('SIGTERM', shutdown);
+    process.on('SIGINT', shutdown);
   } catch (error) {
     console.error('Failed to start server:', error);
     process.exit(1);

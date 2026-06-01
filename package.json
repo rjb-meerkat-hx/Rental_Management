@@ -3,13 +3,19 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "vite",
+    "dev:frontend": "vite",
     "build": "vite build",
+    "build:frontend": "vite build",
     "preview": "vite preview",
     "server": "node server/index.cjs",
     "server:dev": "nodemon server/index.cjs",
-    "start": "concurrently \"npm run server:dev\" \"npm run dev\""
+    "start": "node server/index.cjs",
+    "dev:all": "concurrently \"npm run server:dev\" \"npm run dev\""
   },
   "dependencies": {
     "cors": "^2.8.6",

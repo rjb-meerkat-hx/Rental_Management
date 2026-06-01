@@ -11,6 +11,10 @@ node_modules
 dist
 dist-ssr
 *.local
+temp_proxy.json
+*.db-journal
+*.db-wal
+*.db-shm
 
 # Editor directories and files
 .vscode/*

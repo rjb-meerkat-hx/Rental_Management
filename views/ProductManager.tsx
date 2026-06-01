@@ -2,7 +2,7 @@
 import React from 'react';
 import { Package, Plus, Search, MoreVertical, Edit3, Trash2, Layers } from 'lucide-react';
 import { MOCK_PRODUCTS } from '../constants.tsx';
-import { formatINR, normalizeProduct, denormalizeProduct } from '../utils';
+import { apiFetch, formatINR, normalizeProduct, denormalizeProduct } from '../utils';
 
 interface Product {
   id: string;
@@ -39,7 +39,7 @@ export const ProductManager: React.FC<Props> = ({ products: initialProducts, onA
 
   React.useEffect(() => {
     if (!initialProducts) {
-      fetch('/api/products')
+      apiFetch('/api/products')
         .then(r => r.json())
         .then(data => {
           // Normalize all products from server format
@@ -100,7 +100,7 @@ export const ProductManager: React.FC<Props> = ({ products: initialProducts, onA
     });
 
     if (editingProduct) {
-      const res = await fetch(`/api/products/${editingProduct.id}`, {
+      const res = await apiFetch(`/api/products/${editingProduct.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -110,7 +110,7 @@ export const ProductManager: React.FC<Props> = ({ products: initialProducts, onA
       setProducts(prev => prev.map(p => p.id === normalized.id ? normalized : p));
     } else {
       payload.id = payload.id || `p${Date.now()}`;
-      const res = await fetch('/api/products', {
+      const res = await apiFetch('/api/products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -142,7 +142,7 @@ export const ProductManager: React.FC<Props> = ({ products: initialProducts, onA
   const handleDelete = async (id: string) => {
     if (!window.confirm('Delete this product?')) return;
     if (onDelete) { onDelete(id); return; }
-    await fetch(`/api/products/${id}`, { method: 'DELETE' });
+    await apiFetch(`/api/products/${id}`, { method: 'DELETE' });
     setProducts(prev => prev.filter(p => p.id !== id));
   };
 

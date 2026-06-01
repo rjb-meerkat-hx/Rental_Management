@@ -4,7 +4,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area 
 } from 'recharts';
 import { TrendingUp, Package, Users, DollarSign, ArrowUpRight, ArrowDownRight } from 'lucide-react';
-import { formatINR } from '../utils';
+import { apiFetch, formatINR } from '../utils';
 
 const StatCard = ({ title, value, icon: Icon, trend, color }: any) => (
   <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
@@ -49,8 +49,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOrderSelect }) => {
     const fetchData = async () => {
       try {
         const [rentals, tenants] = await Promise.all([
-          fetch('/api/rentals').then(r => r.json()),
-          fetch('/api/tenants').then(r => r.json())
+          apiFetch('/api/rentals').then(r => r.json()),
+          apiFetch('/api/tenants').then(r => r.json())
         ]);
 
         const totalRevenue = rentals.reduce((sum: number, r: any) => sum + (r.monthly_rent || 0), 0);

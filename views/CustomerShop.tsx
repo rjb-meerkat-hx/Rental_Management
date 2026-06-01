@@ -5,7 +5,7 @@ import {
   LayoutGrid, List, ChevronRight, Star, Clock, Sparkles
 } from 'lucide-react';
 import { MOCK_PRODUCTS } from '../constants.tsx';
-import { formatINR, normalizeProduct } from '../utils';
+import { apiFetch, formatINR, normalizeProduct } from '../utils';
 import { Chatbot, ChatbotButton } from '../components/Chatbot';
 import { Cart } from '../components/Cart';
 
@@ -23,7 +23,7 @@ export const CustomerShop: React.FC<CustomerShopProps> = ({ onExit }) => {
   const [products, setProducts] = useState<any[]>(MOCK_PRODUCTS);
 
   React.useEffect(() => {
-    fetch('/api/products')
+    apiFetch('/api/products')
       .then(r => r.json())
       .then(data => {
         // Normalize all products from server format
